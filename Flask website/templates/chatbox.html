@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Personality Predictor Chatbox</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --background-color: #f7f9fc;
+            --text-color: #000000;
+            --bubble-user: #dcf8c6;
+            --bubble-model: #f1f0f0;
+            --bubble-radius: 15px;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        [data-theme="dark"] {
+            --primary-color: #375a7f;
+            --secondary-color: #444;
+            --background-color: #1e1e1e;
+            --text-color: #ffffff;
+            --bubble-user: #2e3b4e;
+            --bubble-model: #3e4b5e;
+        }
+
+        body {
+            font-family: var(--font-family);
+            margin: 0;
+            padding: 0;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #chatbox {
+            width: 90%;
+            max-width: 600px;
+            background-color: #ffffff;
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0px 5px 25px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            max-height: 90vh;
+        }
+
+        #theme-toggle {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: var(--primary-color);
+        }
+
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding-right: 10px;
+        }
+
+        .message-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 10px;
+        }
+
+        .message-container {
+            display: flex;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        .user-message {
+            justify-content: flex-end;
+        }
+
+        .model-message {
+            justify-content: flex-start;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: var(--bubble-radius);
+            position: relative;
+            word-wrap: break-word;
+            background-color: var(--bubble-model);
+            color: var(--text-color);
+            margin: 2px 0;
+        }
+
+        .user-message .message {
+            background-color: var(--bubble-user);
+            border-bottom-right-radius: 0;
+        }
+
+        .model-message .message {
+            border-bottom-left-radius: 0;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin: 0 10px;
+        }
+
+        .user-message .avatar {
+            order: 1;
+        }
+
+        .model-message .avatar {
+            order: 0;
+        }
+
+        #input-area {
+            display: flex;
+            align-items: center;
+        }
+
+        #input-box {
+            flex: 1;
+            padding: 10px 15px;
+            border-radius: 25px;
+            border: 1px solid #ccc;
+            margin-right: 10px;
+            outline: none;
+            font-size: 1em;
+        }
+
+        #send-btn {
+            padding: 10px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+
+        #send-btn:hover {
+            background-color: darken(var(--primary-color), 10%);
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .typing-indicator .dot {
+            height: 8px;
+            width: 8px;
+            background-color: var(--secondary-color);
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: blink 1.4s infinite both;
+        }
+
+        .typing-indicator .dot:nth-child(1) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator .dot:nth-child(2) {
+            animation-delay: 0.4s;
+        }
+
+        .typing-indicator .dot:nth-child(3) {
+            animation-delay: 0.6s;
+        }
+
+        @keyframes blink {
+            0% {
+                opacity: .2;
+            }
+            20% {
+                opacity: 1;
+            }
+            100% {
+                opacity: .2;
+            }
+        }
+
+        #chart-container {
+            width: 100%;
+            max-width: 500px;
+            margin: 20px auto;
+        }
+
+        :focus {
+            outline: 2px solid var(--primary-color);
+        }
+
+        #messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #messages::-webkit-scrollbar-thumb {
+            background-color: var(--secondary-color);
+            border-radius: 10px;
+        }
+
+        @media (max-height: 600px) {
+            #chatbox {
+                max-height: 80vh;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="chatbox">
+    <button id="theme-toggle" aria-label="Toggle Dark Mode">
+        <i class="fas fa-moon"></i>
+    </button>
+
+    <div id="messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+    <div id="input-area">
+        <input type="text" id="input-box" placeholder="Type your response..." aria-label="User input">
+        <button id="send-btn" aria-label="Send Message">Send</button>
+    </div>
+</div>
+
+<script>
+    const messagesContainer = document.getElementById("messages");
+    const inputBox = document.getElementById("input-box");
+    const themeToggle = document.getElementById("theme-toggle");
+    let darkMode = false;
+
+    window.onload = function() {
+        addMessage("Model", "Can you share a detailed account of a recent challenge you faced, how you dealt with it, the decisions you made, your feelings throughout the process, and the outcome?", "model", true);
+    };
+
+    themeToggle.addEventListener("click", function() {
+        darkMode = !darkMode;
+        document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+        themeToggle.innerHTML = darkMode ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    });
+
+    document.getElementById("send-btn").addEventListener("click", sendMessage);
+    inputBox.addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            sendMessage();
+        }
+    });
+
+    function sendMessage() {
+        const message = inputBox.value;
+
+        if (message.trim() === "") {
+            return;
+        }
+
+        addMessage("You", message, "user", true);
+
+        inputBox.value = "";
+
+        showTypingIndicator();
+
+        fetch("/predict", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ text: message })
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideTypingIndicator();
+            const prediction = data.prediction[0];  
+
+            addMessage("Model", "Based on your response, here's your personality analysis:", "model", true);
+
+            addChart(prediction);
+
+            addTraitDescriptions(prediction);
+        })
+        .catch(error => {
+            hideTypingIndicator();
+            console.error("Error:", error);
+            addMessage("Model", "Sorry, something went wrong. Please try again.", "model", true);
+        });
+    }
+
+    function addMessage(sender, text, type, showAvatar) {
+        const messageGroup = document.createElement("div");
+        messageGroup.className = `message-group ${type}-message`;
+
+        if (showAvatar) {
+            const messageContainer = document.createElement("div");
+            messageContainer.className = `message-container ${type}-message`;
+
+            const avatar = document.createElement("img");
+            avatar.className = "avatar";
+            avatar.alt = `${sender} avatar`;
+            avatar.src = type === "user" ? "/static/images/user-avatar.png" : "/static/images/model-avatar.png";
+            const messageBubble = document.createElement("div");
+            messageBubble.className = "message";
+            messageBubble.textContent = text;
+
+            if (type === "user") {
+                messageContainer.appendChild(messageBubble);
+                messageContainer.appendChild(avatar);
+            } else {
+                messageContainer.appendChild(avatar);
+                messageContainer.appendChild(messageBubble);
+            }
+
+            messageGroup.appendChild(messageContainer);
+        } else {
+            const messageContainer = document.createElement("div");
+            messageContainer.className = `message-container ${type}-message`;
+            messageContainer.style.marginLeft = type === "model" ? "50px" : "0";
+            messageContainer.style.marginRight = type === "user" ? "50px" : "0";
+
+            const messageBubble = document.createElement("div");
+            messageBubble.className = "message";
+            messageBubble.textContent = text;
+
+            messageContainer.appendChild(messageBubble);
+            messageGroup.appendChild(messageContainer);
+        }
+
+        messagesContainer.appendChild(messageGroup);
+
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function showTypingIndicator() {
+        const typingIndicator = document.createElement("div");
+        typingIndicator.className = "message-group model-message";
+        typingIndicator.id = "typing-indicator";
+
+        const messageContainer = document.createElement("div");
+        messageContainer.className = "message-container model-message";
+
+        const avatar = document.createElement("img");
+        avatar.className = "avatar";
+        avatar.alt = "Model avatar";
+        avatar.src = "model-avatar.png";
+
+        const indicator = document.createElement("div");
+        indicator.className = "message typing-indicator";
+        indicator.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+
+        messageContainer.appendChild(avatar);
+        messageContainer.appendChild(indicator);
+        typingIndicator.appendChild(messageContainer);
+        messagesContainer.appendChild(typingIndicator);
+
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function hideTypingIndicator() {
+        const typingIndicator = document.getElementById("typing-indicator");
+        if (typingIndicator) {
+            typingIndicator.remove();
+        }
+    }
+
+    function addChart(prediction) {
+        const chartContainer = document.createElement("div");
+        chartContainer.id = "chart-container";
+
+        const canvas = document.createElement("canvas");
+        canvas.id = "trait-chart";
+        canvas.setAttribute('aria-label', 'Personality Traits Radar Chart');
+        canvas.setAttribute('role', 'img');
+        chartContainer.appendChild(canvas);
+
+        messagesContainer.appendChild(chartContainer);
+
+        const ctx = canvas.getContext('2d');
+
+        const data = {
+            labels: ["Agreeableness", "Openness", "Conscientiousness", "Extraversion", "Neuroticism"],
+            datasets: [{
+                label: 'Personality Traits',
+                data: prediction, 
+                backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                borderColor: 'rgba(0, 123, 255, 1)',
+                pointBackgroundColor: 'rgba(0, 123, 255, 1)',
+                borderWidth: 2
+            }]
+        };
+
+        const options = {
+            scale: {
+                ticks: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            },
+            responsive: true
+        };
+
+        new Chart(ctx, {
+            type: 'radar',
+            data: data,
+            options: options
+        });
+
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function addTraitDescriptions(prediction) {
+        const traits = ["Agreeableness", "Openness", "Conscientiousness", "Extraversion", "Neuroticism"];
+        const descriptions = [
+            "Agreeableness reflects individual differences in concern for social harmony.",
+            "Openness indicates how open-minded a person is.",
+            "Conscientiousness reflects how organized and dependable a person is.",
+            "Extraversion indicates how outgoing and energetic someone is.",
+            "Neuroticism reflects emotional stability and tendency toward anxiety."
+        ];
+
+        const messageGroup = document.createElement("div");
+        messageGroup.className = `message-group model-message`;
+
+        traits.forEach((trait, index) => {
+            const value = prediction[index].toFixed(1); 
+            const text = `${trait}: ${value}% - ${descriptions[index]}`;
+
+            const messageContainer = document.createElement("div");
+            messageContainer.className = `message-container model-message`;
+            messageContainer.style.marginLeft = "50px";
+
+            const messageBubble = document.createElement("div");
+            messageBubble.className = "message";
+            messageBubble.textContent = text;
+
+            messageContainer.appendChild(messageBubble);
+            messageGroup.appendChild(messageContainer);
+        });
+
+        messagesContainer.appendChild(messageGroup);
+
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+</script>
+
+</body>
+</html>
